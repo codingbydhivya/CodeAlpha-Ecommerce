@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopHub – My Orders</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+  <main class="container">
+    <h1 class="page-title">Order History</h1>
+    <div id="root"></div>
+  </main>
+  <footer id="site-footer"></footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    (async () => {
+      const root = $('#root');
+      if (!Auth.loggedIn) return (location.href = 'login.html?next=orders.html');
+      root.innerHTML = '<div class="skeleton" style="height:180px"></div>';
+      try {
+        const { orders } = await api('/orders', { auth: true });
+        if (!orders.length) {
+          root.innerHTML = `<div class="empty panel"><div class="big">📦</div><h2>No orders yet</h2><p>When you place an order it will show up here.</p><a class="btn btn-primary" href="products.html">Start shopping</a></div>`;
+          return;
+        }
+        root.innerHTML = orders.map((o) => `
+          <div class="panel order">
+            <div class="order-head">
+              <div><small>Order</small><strong>#${o._id.slice(-8).toUpperCase()}</strong></div>
+              <div><small>Date</small>${new Date(o.orderDate).toLocaleDateString()}</div>
+              <div><small>Total</small><strong>${money(o.totalAmount)}</strong></div>
+              <div><span class="status ${esc(o.status)}">${esc(o.status)}</span></div>
+            </div>
+            ${o.products.map((p) => `<div class="order-line"><span>${esc(p.name)} × ${p.quantity}</span><span>${money(p.price * p.quantity)}</span></div>`).join('')}
+          </div>`).join('');
+      } catch (e) {
+        if (e.status === 401) return (location.href = 'login.html?next=orders.html');
+        root.innerHTML = `<div class="alert error show">${esc(e.message)}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

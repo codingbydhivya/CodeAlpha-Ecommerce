@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopHub – Login</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+  <main>
+    <form class="form-card" id="form" novalidate>
+      <h1>Welcome back</h1>
+      <p class="sub">Log in to place orders and view your history.</p>
+      <div id="alert" class="alert"></div>
+      <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required /></div>
+      <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required /></div>
+      <button class="btn btn-primary btn-block" type="submit" id="submit">Login</button>
+      <p class="form-foot">New here? <a id="reg-link" href="register.html">Create an account</a></p>
+    </form>
+  </main>
+  <footer id="site-footer"></footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const next = new URLSearchParams(location.search).get('next');
+    const safeNext = next && /^[a-z-]+\.html$/i.test(next) ? next : 'index.html';
+    if (next) $('#reg-link').href = 'register.html?next=' + encodeURIComponent(safeNext);
+    if (Auth.loggedIn) location.replace(safeNext);
+
+    $('#form').onsubmit = async (e) => {
+      e.preventDefault();
+      const alertBox = $('#alert'), btn = $('#submit');
+      const email = $('#email').value.trim(), password = $('#password').value;
+      if (!/^\S+@\S+\.\S+$/.test(email)) return showAlert(alertBox, 'Enter a valid email address.');
+      if (!password) return showAlert(alertBox, 'Password is required.');
+      btn.disabled = true; btn.textContent = 'Logging in…';
+      try {
+        const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password } });
+        Auth.save(token, user);
+        showAlert(alertBox, 'Login successful! Redirecting…', 'success');
+        setTimeout(() => (location.href = safeNext), 500);
+      } catch (err) {
+        showAlert(alertBox, err.message);
+        btn.disabled = false; btn.textContent = 'Login';
+      }
+    };
+  </script>
+</body>
+</html>

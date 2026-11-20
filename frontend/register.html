@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopHub – Register</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+  <main>
+    <form class="form-card" id="form" novalidate>
+      <h1>Create your account</h1>
+      <p class="sub">It only takes a minute.</p>
+      <div id="alert" class="alert"></div>
+      <div class="field"><label for="name">Full name</label><input id="name" type="text" autocomplete="name" required /></div>
+      <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required /></div>
+      <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="new-password" required /><small style="color:var(--muted)">At least 6 characters, with a letter and a number.</small></div>
+      <div class="field"><label for="confirm">Confirm password</label><input id="confirm" type="password" autocomplete="new-password" required /></div>
+      <button class="btn btn-primary btn-block" type="submit" id="submit">Register</button>
+      <p class="form-foot">Already have an account? <a id="login-link" href="login.html">Login</a></p>
+    </form>
+  </main>
+  <footer id="site-footer"></footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const next = new URLSearchParams(location.search).get('next');
+    const safeNext = next && /^[a-z-]+\.html$/i.test(next) ? next : 'index.html';
+    if (next) $('#login-link').href = 'login.html?next=' + encodeURIComponent(safeNext);
+
+    $('#form').onsubmit = async (e) => {
+      e.preventDefault();
+      const alertBox = $('#alert'), btn = $('#submit');
+      const name = $('#name').value.trim(), email = $('#email').value.trim();
+      const password = $('#password').value, confirm = $('#confirm').value;
+      if (name.length < 2) return showAlert(alertBox, 'Name must be at least 2 characters.');
+      if (!/^\S+@\S+\.\S+$/.test(email)) return showAlert(alertBox, 'Enter a valid email address.');
+      if (password.length < 6 || !/[A-Za-z]/.test(password) || !/\d/.test(password))
+        return showAlert(alertBox, 'Password must be 6+ characters with a letter and a number.');
+      if (password !== confirm) return showAlert(alertBox, 'Passwords do not match.');
+      btn.disabled = true; btn.textContent = 'Creating account…';
+      try {
+        const { token, user } = await api('/auth/register', { method: 'POST', body: { name, email, password } });
+        Auth.save(token, user);
+        showAlert(alertBox, 'Account created! Redirecting…', 'success');
+        setTimeout(() => (location.href = safeNext), 600);
+      } catch (err) {
+        showAlert(alertBox, err.message);
+        btn.disabled = false; btn.textContent = 'Register';
+      }
+    };
+  </script>
+</body>
+</html>

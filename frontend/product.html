@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopHub – Product Details</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+  <main class="container">
+    <div class="crumbs"><a href="index.html">Home</a> / <a href="products.html">Products</a> / <span id="crumb">…</span></div>
+    <div id="detail"><div class="skeleton" style="height:420px;margin:2rem 0"></div></div>
+  </main>
+  <footer id="site-footer"></footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    (async () => {
+      const id = new URLSearchParams(location.search).get('id');
+      const box = $('#detail');
+      try {
+        const { product: p } = await api('/products/' + encodeURIComponent(id));
+        document.title = `ShopHub – ${p.name}`;
+        $('#crumb').textContent = p.name;
+        const stockLabel = p.stock <= 0 ? ['out', 'Out of stock'] : p.stock <= 5 ? ['low', `Only ${p.stock} left`] : ['in', `In stock (${p.stock})`];
+        box.innerHTML = `
+          <div class="detail">
+            <div class="detail-img"><img src="${esc(p.image)}" alt="${esc(p.name)}" onerror="this.onerror=null;this.src=NO_IMG" /></div>
+            <div>
+              <span class="tag" style="position:static;display:inline-block;background:#eef2ff;color:var(--primary)">${esc(p.category)}</span>
+              <h1>${esc(p.name)}</h1>
+              <span class="price">${money(p.price)}</span>
+              <p>${esc(p.description)}</p>
+              <div class="stock ${stockLabel[0]}">${stockLabel[1]}</div>
+              <div class="buy-row">
+                <div class="qty"><button id="minus" aria-label="Decrease">−</button><span id="q">1</span><button id="plus" aria-label="Increase">+</button></div>
+                <button class="btn btn-primary" id="add" ${p.stock <= 0 ? 'disabled' : ''}>Add to Cart</button>
+                <a class="btn btn-outline" href="cart.html">Go to Cart</a>
+              </div>
+            </div>
+          </div>`;
+        let qty = 1;
+        const q = $('#q');
+        $('#minus').onclick = () => { qty = Math.max(1, qty - 1); q.textContent = qty; };
+        $('#plus').onclick = () => { if (qty < p.stock) { qty++; q.textContent = qty; } else toast(`Only ${p.stock} in stock.`, 'error'); };
+        $('#add').onclick = () => { if (Cart.add(p, qty)) toast(`Added ${qty} × "${p.name}" to cart.`, 'success'); };
+      } catch (e) {
+        box.innerHTML = `<div class="empty"><div class="big">😕</div><h2>${esc(e.message)}</h2><a class="btn btn-primary" href="products.html">Back to products</a></div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

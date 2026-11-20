@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopHub – Products</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+  <main class="container">
+    <h1 class="page-title" id="title">All Products</h1>
+    <div class="toolbar">
+      <select id="category" aria-label="Category"><option value="all">All categories</option></select>
+      <select id="sort" aria-label="Sort">
+        <option value="newest">Newest</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="name">Name A–Z</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="pagination" class="pagination"></div>
+  </main>
+  <footer id="site-footer"></footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const state = { search: params.get('search') || '', category: params.get('category') || 'all', sort: 'newest', page: 1 };
+    let current = [];
+    const grid = $('#grid');
+    bindAddToCart(grid, { find: (fn) => current.find(fn) }); // delegate using latest list
+
+    async function load() {
+      grid.innerHTML = skeletons(8);
+      const q = new URLSearchParams({ sort: state.sort, page: state.page, limit: 12 });
+      if (state.search) q.set('search', state.search);
+      if (state.category !== 'all') q.set('category', state.category);
+      try {
+        const data = await api('/products?' + q);
+        current = data.products;
+        $('#title').textContent = state.search ? `Results for "${state.search}"` : 'All Products';
+        $('#count').textContent = `${data.total} product${data.total === 1 ? '' : 's'}`;
+        grid.innerHTML = current.length
+          ? current.map(productCard).join('')
+          : `<div class="empty" style="grid-column:1/-1"><div class="big">🔍</div><h2>No products found</h2><p>Try a different search or category.</p><a class="btn btn-primary" href="products.html">Clear filters</a></div>`;
+        const pg = $('#pagination');
+        pg.innerHTML = data.pages > 1
+          ? Array.from({ length: data.pages }, (_, i) => `<button class="${i + 1 === data.page ? 'active' : ''}" data-p="${i + 1}">${i + 1}</button>`).join('')
+          : '';
+      } catch (e) {
+        grid.innerHTML = `<div class="alert error show" style="grid-column:1/-1">${esc(e.message)}</div>`;
+      }
+    }
+
+    (async () => {
+      try {
+        const { categories } = await api('/products/categories');
+        $('#category').innerHTML += categories.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        $('#category').value = state.category;
+      } catch {}
+      load();
+    })();
+
+    $('#category').onchange = (e) => { state.category = e.target.value; state.page = 1; load(); };
+    $('#sort').onchange = (e) => { state.sort = e.target.value; state.page = 1; load(); };
+    $('#pagination').onclick = (e) => {
+      const b = e.target.closest('button[data-p]');
+      if (b) { state.page = +b.dataset.p; load(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    };
+  </script>
+</body>
+</html>

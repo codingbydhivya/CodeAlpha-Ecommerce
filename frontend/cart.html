@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopHub – Cart</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header id="site-header"></header>
+  <main class="container">
+    <h1 class="page-title">Shopping Cart</h1>
+    <div id="cart-root"></div>
+  </main>
+  <footer id="site-footer"></footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script>
+    const root = $('#cart-root');
+    let address = '';
+
+    function render() {
+      const items = Cart.items;
+      if (!items.length) {
+        root.innerHTML = `<div class="empty panel"><div class="big">🛒</div><h2>Your cart is empty</h2><p>Looks like you haven't added anything yet.</p><a class="btn btn-primary" href="products.html">Browse products</a></div>`;
+        return;
+      }
+      const rows = items.map((i) => `
+        <div class="cart-item" data-id="${i.productId}">
+          <img src="${esc(i.image)}" alt="${esc(i.name)}" onerror="this.onerror=null;this.src=NO_IMG" />
+          <div>
+            <h3><a href="product.html?id=${i.productId}">${esc(i.name)}</a></h3>
+            <div class="unit">${money(i.price)} each</div>
+            <div class="controls">
+              <div class="qty"><button data-act="dec" aria-label="Decrease">−</button><span>${i.quantity}</span><button data-act="inc" aria-label="Increase">+</button></div>
+              <button class="btn btn-danger" data-act="rm" style="padding:0.4rem 0.8rem">Remove</button>
+            </div>
+          </div>
+          <div class="line-total">${money(i.price * i.quantity)}</div>
+        </div>`).join('');
+
+      root.innerHTML = `
+        <div class="cart-layout">
+          <div class="panel">${rows}</div>
+          <aside class="panel">
+            <h2 style="margin-bottom:0.8rem">Order Summary</h2>
+            <div class="summary-row"><span>Items (${Cart.count})</span><span>${money(Cart.total)}</span></div>
+            <div class="summary-row"><span>Shipping</span><span>Free</span></div>
+            <div class="summary-row total"><span>Total</span><span>${money(Cart.total)}</span></div>
+            <div id="alert" class="alert" style="margin-top:1rem"></div>
+            ${Auth.loggedIn ? `
+              <div class="field" style="margin-top:1rem">
+                <label for="address">Shipping address</label>
+                <textarea id="address" rows="3" placeholder="House no, street, city, postal code">${esc(address)}</textarea>
+              </div>
+              <button class="btn btn-primary btn-block" id="place">Place Order</button>`
+            : `<a class="btn btn-primary btn-block" style="margin-top:1rem" href="login.html?next=cart.html">Login to Checkout</a>`}
+            <button class="btn btn-outline btn-block" id="clear" style="margin-top:0.6rem">Clear Cart</button>
+          </aside>
+        </div>`;
+    }
+
+    root.addEventListener('click', async (e) => {
+      const act = e.target.closest('[data-act]');
+      if (act) {
+        const id = act.closest('.cart-item').dataset.id;
+        const it = Cart.items.find((i) => i.productId === id);
+        const ta = $('#address'); if (ta) address = ta.value;
+        if (act.dataset.act === 'inc') Cart.setQty(id, it.quantity + 1);
+        if (act.dataset.act === 'dec') Cart.setQty(id, it.quantity - 1);
+        if (act.dataset.act === 'rm') { Cart.remove(id); toast('Item removed.'); }
+        render();
+        return;
+      }
+      if (e.target.id === 'clear') { Cart.clear(); render(); }
+      if (e.target.id === 'place') await placeOrder(e.target);
+    });
+
+    async function placeOrder(btn) {
+      const alertBox = $('#alert');
+      address = $('#address').value.trim();
+      if (address.length < 10) return showAlert(alertBox, 'Please enter a full shipping address (10+ characters).');
+      btn.disabled = true; btn.textContent = 'Placing order…';
+      try {
+        const { order } = await api('/orders', {
+          method: 'POST', auth: true,
+          body: { items: Cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })), shippingAddress: address }
+        });
+        Cart.clear();
+        location.href = 'order-confirmation.html?id=' + order._id;
+      } catch (e) {
+        if (e.status === 401) { toast('Session expired. Please log in again.', 'error'); return setTimeout(() => (location.href = 'login.html?next=cart.html'), 800); }
+        showAlert(alertBox, e.message);
+        btn.disabled = false; btn.textContent = 'Place Order';
+      }
+    }
+    render();
+  </script>
+</body>
+</html>
